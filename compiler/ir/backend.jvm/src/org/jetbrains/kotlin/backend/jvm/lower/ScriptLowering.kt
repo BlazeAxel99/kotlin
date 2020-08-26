@@ -113,26 +113,26 @@ private class ScriptToClassLowering(val context: JvmBackendContext) : FileLoweri
                 }
             }
             irScript.statements.forEach { scriptStatement ->
-                val transformedStatement = scriptStatement.transformStatement(scriptTransformer)
-                irScriptClass.addAnonymousInitializer().also { irInitializer ->
-                    irInitializer.body =
-                        context.createIrBuilder(irInitializer.symbol).irBlockBody {
-                            if (transformedStatement is IrComposite) {
-                                for (statement in transformedStatement.statements)
-                                    +statement
-                            }
-                            else {
-                                +transformedStatement
-                            }
+                when (scriptStatement) {
+                    is IrVariable -> irScriptClass.addSimplePropertyFrom(scriptStatement)
+                    is IrDeclaration -> {
+                        val copy = scriptStatement.transform(scriptTransformer, null) as IrDeclaration
+                        irScriptClass.declarations.add(copy)
+                    }
+                    else -> {
+                        val transformedStatement = scriptStatement.transformStatement(scriptTransformer)
+                        irScriptClass.addAnonymousInitializer().also { irInitializer ->
+                            irInitializer.body =
+                                context.createIrBuilder(irInitializer.symbol).irBlockBody {
+                                    if (transformedStatement is IrComposite) {
+                                        for (statement in transformedStatement.statements)
+                                            +statement
+                                    } else {
+                                        +transformedStatement
+                                    }
+                                }
                         }
-                }
-            }
-            irScript.declarations.forEach {
-                if (it is IrVariable) {
-                    irScriptClass.addSimplePropertyFrom(it)
-                } else {
-                    val copy = it.transform(scriptTransformer, null) as IrDeclaration
-                    irScriptClass.declarations.add(copy)
+                    }
                 }
             }
             irScriptClass.annotations += irFile.annotations
@@ -164,7 +164,7 @@ private class ScriptToClassLowering(val context: JvmBackendContext) : FileLoweri
     }
 
     private fun IrProperty.addSimpleFieldGetter(type: IrType, irScriptClass: IrClass, field: IrField) =
-        addGetter() {
+        addGetter {
             returnType = type
         }.apply {
             dispatchReceiverParameter = irScriptClass.thisReceiver!!.copyTo(this)
@@ -188,9 +188,6 @@ private class ScriptToClassLowering(val context: JvmBackendContext) : FileLoweri
                 )
             )
         }
-
-    object DECLARATION_ORIGIN_FIELD_FOR_SCRIPT_VARIABLE :
-        IrDeclarationOriginImpl("FIELD_FOR_SCRIPT_VARIABL", isSynthetic = true)
 }
 
 fun <T : IrElement> T.patchDeclarationParentsToScriptClass(
@@ -241,9 +238,6 @@ private class ScriptToClassTransformer(
     private inline fun <reified T : IrElement> MutableList<T>.replaceTransform() =
         replaceAll { it.transform() }
 
-    private fun <T : IrDeclarationContainer> T.transformDeclarations() =
-        declarations.transform()
-
     private fun <T : IrFunction> T.transformFunctionChildren(): T =
         apply {
             transformAnnotations()
@@ -260,12 +254,6 @@ private class ScriptToClassTransformer(
         superTypes.replaceAll { it.remapType() }
     }
 
-    private fun IrTypeParametersContainer.transformTypeParameters() {
-        typeRemapper.withinScope(this) {
-            typeParameters = typeParameters.map { it.remapSuperTypes() }
-        }
-    }
-
     private fun unexpectedElement(element: IrElement): Nothing =
         throw IllegalArgumentException("Unsupported element type: $element")
 
@@ -273,10 +261,9 @@ private class ScriptToClassTransformer(
     override fun visitDeclaration(declaration: IrDeclarationBase): IrStatement = unexpectedElement(declaration)
 
     override fun visitModuleFragment(declaration: IrModuleFragment): IrModuleFragment = unexpectedElement(declaration)
-    override fun visitExternalPackageFragment(declaration: IrExternalPackageFragment): IrExternalPackageFragment = unexpectedElement(declaration)
+    override fun visitExternalPackageFragment(declaration: IrExternalPackageFragment) = unexpectedElement(declaration)
     override fun visitFile(declaration: IrFile): IrFile = unexpectedElement(declaration)
     override fun visitScript(declaration: IrScript): IrStatement = unexpectedElement(declaration)
-//    override fun visitExpression(expression: IrExpression): IrExpression = unexpectedElement(expression)
 
     override fun visitClass(declaration: IrClass): IrClass = declaration.apply {
         transformParent()
@@ -360,26 +347,26 @@ private class ScriptToClassTransformer(
         transformChildren(this@ScriptToClassTransformer, null)
     }
 
-    override fun visitValueParameter(expression: IrValueParameter): IrValueParameter {
-        val type = expression.type.remapType()
-        val varargElementType = expression.varargElementType?.remapType()
-        val symbol = symbolRemapper.getDeclaredValueParameter(expression.symbol)
+    override fun visitValueParameter(declaration: IrValueParameter): IrValueParameter {
+        val type = declaration.type.remapType()
+        val varargElementType = declaration.varargElementType?.remapType()
+        val symbol = symbolRemapper.getDeclaredValueParameter(declaration.symbol)
         val remappedExpression =
-            if (type == expression.type && varargElementType == expression.varargElementType && symbol == expression.symbol) {
-                expression
+            if (type == declaration.type && varargElementType == declaration.varargElementType && symbol == declaration.symbol) {
+                declaration
             } else {
                 IrValueParameterImpl(
-                    expression.startOffset, expression.endOffset,
-                    expression.origin,
+                    declaration.startOffset, declaration.endOffset,
+                    declaration.origin,
                     symbol,
-                    expression.name,
-                    expression.index,
+                    declaration.name,
+                    declaration.index,
                     type,
                     varargElementType,
-                    expression.isCrossinline,
-                    expression.isNoinline
+                    declaration.isCrossinline,
+                    declaration.isNoinline
                 ).apply {
-                    parent = expression.parent
+                    parent = declaration.parent
                 }
             }
         return remappedExpression.apply {
@@ -389,19 +376,19 @@ private class ScriptToClassTransformer(
         }
     }
 
-    override fun visitTypeAlias(expression: IrTypeAlias): IrTypeAlias {
-        val expandedType = expression.expandedType.remapType()
-        val remappedExpression = if (expandedType == expression.expandedType) {
-            expression
+    override fun visitTypeAlias(declaration: IrTypeAlias): IrTypeAlias {
+        val expandedType = declaration.expandedType.remapType()
+        val remappedExpression = if (expandedType == declaration.expandedType) {
+            declaration
         } else {
             IrTypeAliasImpl(
-                expression.startOffset, expression.endOffset,
-                expression.symbol,
-                expression.name,
-                expression.visibility,
+                declaration.startOffset, declaration.endOffset,
+                declaration.symbol,
+                declaration.name,
+                declaration.visibility,
                 expandedType,
-                expression.isActual,
-                expression.origin
+                declaration.isActual,
+                declaration.origin
             )
         }
         return remappedExpression.apply {
@@ -812,50 +799,50 @@ private class ScriptToClassTransformer(
         }
     }
 
-    override fun visitBreak(expression: IrBreak): IrBreak {
-        val type = expression.type.remapType()
-        val remappedExpression = if (type == expression.type) {
-            expression
+    override fun visitBreak(jump: IrBreak): IrBreak {
+        val type = jump.type.remapType()
+        val remappedExpression = if (type == jump.type) {
+            jump
         } else {
             IrBreakImpl(
-                expression.startOffset, expression.endOffset,
+                jump.startOffset, jump.endOffset,
                 type,
-                expression.loop
-            ).copyAttributes(expression)
+                jump.loop
+            ).copyAttributes(jump)
         }
         return remappedExpression.also {
             it.transformChildren(this, null)
         }
     }
 
-    override fun visitContinue(expression: IrContinue): IrContinue {
-        val type = expression.type.remapType()
-        val remappedExpression = if (type == expression.type) {
-            expression
+    override fun visitContinue(jump: IrContinue): IrContinue {
+        val type = jump.type.remapType()
+        val remappedExpression = if (type == jump.type) {
+            jump
         } else {
             IrContinueImpl(
-                expression.startOffset, expression.endOffset,
+                jump.startOffset, jump.endOffset,
                 type,
-                expression.loop
-            ).copyAttributes(expression)
+                jump.loop
+            ).copyAttributes(jump)
         }
         return remappedExpression.also {
             it.transformChildren(this, null)
         }
     }
 
-    override fun visitTry(expression: IrTry): IrTry {
-        val type = expression.type.remapType()
-        val remappedExpression = if (type == expression.type) {
-            expression
+    override fun visitTry(aTry: IrTry): IrTry {
+        val type = aTry.type.remapType()
+        val remappedExpression = if (type == aTry.type) {
+            aTry
         } else {
             IrTryImpl(
-                expression.startOffset, expression.endOffset,
+                aTry.startOffset, aTry.endOffset,
                 type,
-                expression.tryResult,
-                expression.catches,
-                expression.finallyExpression
-            ).copyAttributes(expression)
+                aTry.tryResult,
+                aTry.catches,
+                aTry.finallyExpression
+            ).copyAttributes(aTry)
         }
         return remappedExpression.also {
             it.transformChildren(this, null)
@@ -928,13 +915,6 @@ private class ScriptToClassTransformer(
         }
     }
 
-    private fun SymbolRemapper.getReferencedReturnTarget(returnTarget: IrReturnTargetSymbol) =
-        when (returnTarget) {
-            is IrFunctionSymbol -> getReferencedFunction(returnTarget)
-            is IrReturnableBlockSymbol -> getReferencedReturnableBlock(returnTarget)
-            else -> throw AssertionError("Unexpected return target: ${returnTarget.javaClass} $returnTarget")
-        }
-
     private fun transformCall(expression: IrCall): IrCall {
         val type = expression.type.remapType()
         val superQualifierSymbol = symbolRemapper.getReferencedClassOrNull(expression.superQualifierSymbol)
@@ -981,7 +961,7 @@ private class ScriptToClassTransformer(
 private class ScriptToClassSymbolRemapper(
     val irScriptSymbol: IrScriptSymbol,
     val irScriptClassSymbol: IrClassSymbol
-): SymbolRemapper {
+) : SymbolRemapper {
     override fun getDeclaredClass(symbol: IrClassSymbol): IrClassSymbol = symbol
 
     override fun getDeclaredScript(symbol: IrScriptSymbol): IrScriptSymbol = symbol

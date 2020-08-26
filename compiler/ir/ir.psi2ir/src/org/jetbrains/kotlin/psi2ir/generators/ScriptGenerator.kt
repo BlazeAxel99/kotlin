@@ -109,7 +109,7 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                                 )
                             val irComponentBackingField = irComponentProperty.backingField!!
 
-                            irScript.declarations.add(irComponentProperty)
+                            irScript.statements += irComponentProperty
 
                             val irComponentInitializer = IrSetFieldImpl(
                                 ktEntry.startOffsetSkippingComments, ktEntry.endOffset,
@@ -118,35 +118,37 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                                 origin = null, superQualifierSymbol = null
                             ).apply {
                                 value = irComponentCall
-                                receiver = IrGetValueImpl(ktEntry.startOffsetSkippingComments, ktEntry.endOffset, irScript.thisReceiver.symbol)
+                                receiver = IrGetValueImpl(
+                                    ktEntry.startOffsetSkippingComments, ktEntry.endOffset, irScript.thisReceiver.symbol
+                                )
                             }
                             irBlock.statements.add(irComponentInitializer)
                         }
                         irScript.statements += irBlock
                     }
-                    else -> irScript.declarations += declarationGenerator.generateMemberDeclaration(d)!!
+                    else -> irScript.statements += declarationGenerator.generateMemberDeclaration(d)!!
                 }
             }
 
             descriptor.resultValue?.let { resultDescriptor ->
                 val resultProperty = resultDescriptor.toIrProperty(startOffset, endOffset, IrDeclarationOrigin.SCRIPT_RESULT_PROPERTY)
-                irScript.declarations += resultProperty
+                irScript.statements += resultProperty
                 irScript.resultProperty = resultProperty.symbol
             }
 
             irScript.explicitCallParameters = descriptor.unsubstitutedPrimaryConstructor.valueParameters.map { valueParameterDescriptor ->
-                valueParameterDescriptor.toIrValueParameter(startOffset, endOffset, IrDeclarationOrigin.SCRIPT_CALL_PARAMETER).also {
-//                    irScript.declarations += it
-                }
+                valueParameterDescriptor.toIrValueParameter(startOffset, endOffset, IrDeclarationOrigin.SCRIPT_CALL_PARAMETER)
             }
 
             irScript.implicitReceivers = descriptor.implicitReceivers.map { implicitReceiver ->
-                implicitReceiver.thisAsReceiverParameter.toIrValueParameter(startOffset, endOffset, IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER)
+                implicitReceiver.thisAsReceiverParameter.toIrValueParameter(
+                    startOffset, endOffset, IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER
+                )
             }
 
             irScript.providedProperties = descriptor.scriptProvidedProperties.map { providedProperty ->
-                val irProperty =  providedProperty.toIrProperty(startOffset, endOffset, IrDeclarationOrigin.SCRIPT_PROVIDED_PROPERTY)
-                irScript.declarations += irProperty
+                val irProperty = providedProperty.toIrProperty(startOffset, endOffset, IrDeclarationOrigin.SCRIPT_PROVIDED_PROPERTY)
+                irScript.statements += irProperty
                 irProperty.symbol
             }
         }

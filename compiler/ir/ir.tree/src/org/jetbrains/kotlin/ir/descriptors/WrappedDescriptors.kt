@@ -684,7 +684,7 @@ open class WrappedScriptDescriptor(
     override fun getSource() = sourceElement
 
     override fun getConstructors() =
-        owner.declarations.filterIsInstance<IrConstructor>().filter { !it.origin.isSynthetic }.map { it.descriptor }.toList()
+        owner.statements.filterIsInstance<IrConstructor>().filter { !it.origin.isSynthetic }.map { it.descriptor }.toList()
 
     override fun getContainingDeclaration() = (owner.parent as IrSymbolOwner).symbol.descriptor
 
@@ -698,7 +698,7 @@ open class WrappedScriptDescriptor(
 
     override fun getModality() = TODO()
 
-    override fun getCompanionObjectDescriptor() = owner.declarations.filterIsInstance<IrClass>().firstOrNull { it.isCompanion }?.descriptor
+    override fun getCompanionObjectDescriptor() = owner.statements.filterIsInstance<IrClass>().firstOrNull { it.isCompanion }?.descriptor
 
     override fun getVisibility() = TODO()
 
@@ -710,7 +710,7 @@ open class WrappedScriptDescriptor(
 
     override fun isFun() = false
 
-    override fun getThisAsReceiverParameter() = owner.thisReceiver?.descriptor as ReceiverParameterDescriptor
+    override fun getThisAsReceiverParameter() = owner.thisReceiver.descriptor as ReceiverParameterDescriptor
 
     override fun getUnsubstitutedPrimaryConstructor() = TODO()
 

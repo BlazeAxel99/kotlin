@@ -35,7 +35,7 @@ class CreateScriptFunctionsPhase(val context: CommonBackendContext) : FileLoweri
     private fun lower(irScript: IrScript): List<IrDeclaration> {
         val (startOffset, endOffset) = getFunctionBodyOffsets(irScript)
 
-        val initializeStatements = irScript.declarations
+        val initializeStatements = irScript.statements
             .filterIsInstance<IrProperty>()
             .mapNotNull { it.backingField }
             .filter { it.initializer != null }
@@ -55,14 +55,14 @@ class CreateScriptFunctionsPhase(val context: CommonBackendContext) : FileLoweri
             it.body = it.factory.createBlockBody(
                 startOffset,
                 endOffset,
-                irScript.statements.prepareForEvaluateScriptFunction(it)
+                irScript.statements.filter { it !is IrDeclaration }.prepareForEvaluateScriptFunction(it)
             )
         }
 
         with(irScript) {
-            declarations += initializeScriptFunction
-            declarations += evaluateScriptFunction
-            statements.clear()
+            statements.removeIf { it !is IrDeclaration }
+            statements += initializeScriptFunction
+            statements += evaluateScriptFunction
             statements += createCall(initializeScriptFunction)
             statements += createCall(evaluateScriptFunction)
         }

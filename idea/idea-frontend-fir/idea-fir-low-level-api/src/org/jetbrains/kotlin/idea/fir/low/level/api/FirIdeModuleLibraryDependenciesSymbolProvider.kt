@@ -6,16 +6,15 @@
 package org.jetbrains.kotlin.idea.fir.low.level.api
 
 import org.jetbrains.kotlin.fir.dependenciesWithoutSelf
-import org.jetbrains.kotlin.fir.java.FirLibrarySession
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirDependenciesSymbolProviderImpl
+import org.jetbrains.kotlin.fir.session.FirSessionFactory
 import org.jetbrains.kotlin.idea.caches.project.IdeaModuleInfo
 import org.jetbrains.kotlin.idea.caches.project.isLibraryClasses
 import org.jetbrains.kotlin.idea.caches.resolve.IDEPackagePartProvider
 import org.jetbrains.kotlin.idea.fir.low.level.api.annotations.NotThreadSafe
-
 
 @NotThreadSafe
 //todo make thread safe
@@ -32,7 +31,7 @@ internal class FirIdeModuleLibraryDependenciesSymbolProvider(
             .mapNotNull { dependencyInfo ->
                 val dependencySession = if (dependencyInfo.isLibraryClasses()) {
                     val dependencyScope = dependencyInfo.contentScope()
-                    FirLibrarySession.create(
+                    FirSessionFactory.createLibrarySession(
                         dependencyInfo, sessionProvider as FirProjectSessionProvider,
                         dependencyScope, project, IDEPackagePartProvider(dependencyScope)
                     )
@@ -42,4 +41,3 @@ internal class FirIdeModuleLibraryDependenciesSymbolProvider(
         dependencies
     }
 }
-

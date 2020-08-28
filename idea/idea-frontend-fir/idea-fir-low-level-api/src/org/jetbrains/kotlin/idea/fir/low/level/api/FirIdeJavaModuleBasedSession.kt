@@ -14,9 +14,7 @@ import org.jetbrains.kotlin.fir.extensions.BunchOfRegisteredExtensions
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.registerExtensions
 import org.jetbrains.kotlin.fir.java.JavaSymbolProvider
-import org.jetbrains.kotlin.fir.java.registerJavaVisibilityChecker
-import org.jetbrains.kotlin.fir.resolve.calls.jvm.registerJvmCallConflictResolverFactory
-import org.jetbrains.kotlin.fir.resolve.firProvider
+import org.jetbrains.kotlin.fir.java.registerJavaSpecificComponents
 import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
@@ -90,8 +88,7 @@ internal class FirIdeJavaModuleBasedSession private constructor(
                         }
                     ) as FirSymbolProvider
                 )
-                registerJvmCallConflictResolverFactory()
-                registerJavaVisibilityChecker()
+                registerJavaSpecificComponents()
                 extensionService.registerExtensions(BunchOfRegisteredExtensions.empty())
             }
         }

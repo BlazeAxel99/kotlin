@@ -134,12 +134,9 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
             }
 
             descriptor.resultValue?.let { resultDescriptor ->
-                val resultProperty = resultDescriptor.toIrProperty(
-                    irScript,
-                    startOffset,
-                    endOffset,
-                    IrDeclarationOrigin.SCRIPT_RESULT_PROPERTY
-                )
+                // TODO: initializer
+                // TODO: do not keet direct link
+                val resultProperty = PropertyGenerator(declarationGenerator).generateSyntheticProperty(ktScript, resultDescriptor, null)
                 irScript.statements += resultProperty
                 irScript.resultProperty = resultProperty.symbol
             }
@@ -149,38 +146,21 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
             }
 
             irScript.implicitReceivers = descriptor.implicitReceivers.map { implicitReceiver ->
+                // TODO: probably needs more magic
                 implicitReceiver.thisAsReceiverParameter.toIrValueParameter(
                     startOffset, endOffset, IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER
                 )
             }
 
             irScript.providedProperties = descriptor.scriptProvidedProperties.map { providedProperty ->
-                val irProperty = providedProperty.toIrProperty(
-                    irScript,
-                    startOffset,
-                    endOffset,
-                    IrDeclarationOrigin.SCRIPT_PROVIDED_PROPERTY
-                )
+                // TODO: initializer
+                // TODO: do not keet direct links
+                val irProperty = PropertyGenerator(declarationGenerator).generateSyntheticProperty(ktScript, providedProperty, null)
                 irScript.statements += irProperty
                 irProperty.symbol
             }
         }
     }
-
-    private fun PropertyDescriptor.toIrProperty(
-        parent: IrDeclarationParent, startOffset: Int, endOffset: Int, origin: IrDeclarationOrigin
-    ): IrProperty =
-        context.symbolTable.declareProperty(
-            startOffset, endOffset, origin,
-            this,
-            isDelegated = false
-        ).also {
-            it.parent = parent
-            val type = this.returnType?.toIrType()
-            it.addGetter {
-                returnType = type!!
-            }
-        }
 
     private fun ParameterDescriptor.toIrValueParameter(startOffset: Int, endOffset: Int, origin: IrDeclarationOrigin) =
         context.symbolTable.declareValueParameter(
@@ -189,30 +169,4 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
             type.toIrType(),
             varargElementType?.toIrType()
         )
-}
-
-private inline fun IrProperty.addGetter(builder: IrFunctionBuilder.() -> Unit = {}): IrSimpleFunction =
-    IrFunctionBuilder().run {
-        name = Name.special("<get-${this@addGetter.name}>")
-        builder()
-        factory.buildFunction(this).also { getter ->
-            this@addGetter.getter = getter
-            getter.correspondingPropertySymbol = this@addGetter.symbol
-            getter.parent = this@addGetter.parent
-        }
-    }
-
-private fun IrFactory.buildFunction(builder: IrFunctionBuilder): IrSimpleFunction = with(builder) {
-    val wrappedDescriptor = if (originalDeclaration is IrLazyFunction || containerSource != null)
-        WrappedFunctionDescriptorWithContainerSource()
-    else WrappedSimpleFunctionDescriptor()
-    createFunction(
-        startOffset, endOffset, origin,
-        IrSimpleFunctionSymbolImpl(wrappedDescriptor),
-        name, visibility, modality, returnType,
-        isInline, isExternal, isTailrec, isSuspend, isOperator, isInfix, isExpect, isFakeOverride,
-        containerSource,
-    ).also {
-        wrappedDescriptor.bind(it)
-    }
 }

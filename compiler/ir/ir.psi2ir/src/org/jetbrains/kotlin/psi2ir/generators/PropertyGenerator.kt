@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.psi2ir.generators
 
+import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
@@ -61,36 +62,44 @@ class PropertyGenerator(declarationGenerator: DeclarationGenerator) : Declaratio
 
     fun generatePropertyForPrimaryConstructorParameter(ktParameter: KtParameter, irValueParameter: IrValueParameter): IrDeclaration {
         val propertyDescriptor = getOrFail(BindingContext.PRIMARY_CONSTRUCTOR_PARAMETER, ktParameter)
+        return generateSyntheticProperty(ktParameter, propertyDescriptor, irValueParameter)
+    }
 
+    fun generateSyntheticProperty(
+        ktDeclarationContainer: KtElement, propertyDescriptor: PropertyDescriptor, irValueParameter: IrValueParameter?
+    ): IrProperty {
         val irPropertyType = propertyDescriptor.type.toIrType()
         return context.symbolTable.declareProperty(
-            ktParameter.startOffsetSkippingComments, ktParameter.endOffset,
+            ktDeclarationContainer.startOffsetSkippingComments, ktDeclarationContainer.endOffset,
             IrDeclarationOrigin.DEFINED,
             propertyDescriptor,
             isDelegated = false
         ).also { irProperty ->
             irProperty.backingField =
-                generatePropertyBackingField(ktParameter, propertyDescriptor) {
-                    context.irFactory.createExpressionBody(
-                        IrGetValueImpl(
-                            ktParameter.startOffsetSkippingComments, ktParameter.endOffset,
-                            irPropertyType,
-                            irValueParameter.symbol,
-                            IrStatementOrigin.INITIALIZE_PROPERTY_FROM_PARAMETER
+                generatePropertyBackingField(ktDeclarationContainer, propertyDescriptor) {
+                    if (irValueParameter == null) null
+                    else {
+                        context.irFactory.createExpressionBody(
+                            IrGetValueImpl(
+                                ktDeclarationContainer.startOffsetSkippingComments, ktDeclarationContainer.endOffset,
+                                irPropertyType,
+                                irValueParameter.symbol,
+                                IrStatementOrigin.INITIALIZE_PROPERTY_FROM_PARAMETER
+                            )
                         )
-                    )
+                    }
                 }
 
             val getter = propertyDescriptor.getter
                 ?: throw AssertionError("Property declared in primary constructor has no getter: $propertyDescriptor")
             irProperty.getter =
-                FunctionGenerator(declarationGenerator).generateDefaultAccessorForPrimaryConstructorParameter(getter, ktParameter)
+                FunctionGenerator(declarationGenerator).generateDefaultAccessorForPrimaryConstructorParameter(getter, ktDeclarationContainer)
 
             if (propertyDescriptor.isVar) {
                 val setter = propertyDescriptor.setter
                     ?: throw AssertionError("Property declared in primary constructor has no setter: $propertyDescriptor")
                 irProperty.setter =
-                    FunctionGenerator(declarationGenerator).generateDefaultAccessorForPrimaryConstructorParameter(setter, ktParameter)
+                    FunctionGenerator(declarationGenerator).generateDefaultAccessorForPrimaryConstructorParameter(setter, ktDeclarationContainer)
             }
 
             irProperty.linkCorrespondingPropertySymbol()

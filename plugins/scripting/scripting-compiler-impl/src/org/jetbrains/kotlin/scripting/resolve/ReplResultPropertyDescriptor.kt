@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.scripting.resolve
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.impl.PropertyDescriptorImpl
+import org.jetbrains.kotlin.descriptors.impl.PropertyGetterDescriptorImpl
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.KotlinType
 
@@ -32,8 +33,12 @@ class ReplResultPropertyDescriptor(
 ) {
     init {
         setType(kotlinType, emptyList(), receiver, null)
+        val getter = PropertyGetterDescriptorImpl(this, annotations, modality, visibility, true, isExternal, false, kind, null, source)
+            .apply {
+                initialize(kotlinType)
+            }
         initialize(
-            null, null
+            getter, null
         )
     }
 }

@@ -121,9 +121,9 @@ class FunctionGenerator(declarationGenerator: DeclarationGenerator) : Declaratio
 
     fun generateDefaultAccessorForPrimaryConstructorParameter(
         descriptor: PropertyAccessorDescriptor,
-        ktParameter: KtParameter
+        ktElement: KtElement
     ): IrSimpleFunction =
-        declareSimpleFunctionInner(descriptor, ktParameter, IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR).buildWithScope { irAccessor ->
+        declareSimpleFunctionInner(descriptor, ktElement, IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR).buildWithScope { irAccessor ->
             declarationGenerator.generateScopedTypeParameterDeclarations(irAccessor, descriptor.typeParameters)
             irAccessor.returnType = descriptor.returnType!!.toIrType()
             FunctionGenerator(declarationGenerator).generateSyntheticFunctionParameterDeclarations(irAccessor)

@@ -254,11 +254,11 @@ fun DeclarationTransformer.runPostfix(withLocalDeclarations: Boolean = false): D
                     declaration.declarations.transformFlat(this@runPostfix::transformFlatRestricted)
                 }
 
-//                override fun visitScript(declaration: IrScript) {
-//                    ArrayList(declaration.statements).forEach { it.accept(this, null) }
-//                    declaration.statements.transformFlat(this@runPostfix::transformFlatRestricted)
-//                    declaration.thisReceiver.accept(this, null)
-//                }
+                override fun visitScript(declaration: IrScript) {
+                    declaration.thisReceiver.accept(this, null)
+                    ArrayList(declaration.declarations).forEach { it.accept(this, null) }
+                    declaration.declarations.transformFlat(this@runPostfix::transformFlatRestricted)
+                }
             })
 
             return this@runPostfix.transformFlatRestricted(declaration)

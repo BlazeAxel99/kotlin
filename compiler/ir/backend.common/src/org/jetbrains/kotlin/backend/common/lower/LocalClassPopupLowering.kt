@@ -7,10 +7,12 @@ package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.*
 import org.jetbrains.kotlin.backend.common.ir.addChild
+import org.jetbrains.kotlin.backend.common.ir.setDeclarationsParent
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBody
+import org.jetbrains.kotlin.ir.expressions.IrStatementContainer
 import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -23,7 +25,7 @@ open class LocalClassPopupLowering(val context: BackendContext) : BodyLoweringPa
     }
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
-        val extractedLocalClasses = arrayListOf<Pair<IrClass, IrDeclarationContainer>>()
+        val extractedLocalClasses = arrayListOf<Pair<IrClass, IrDeclarationParent>>()
 
         irBody.transform(object : IrElementTransformerVoidWithContext() {
 
@@ -47,7 +49,14 @@ open class LocalClassPopupLowering(val context: BackendContext) : BodyLoweringPa
         }, null)
 
         for ((local, newContainer) in extractedLocalClasses) {
-            newContainer.addChild(local)
+            when (newContainer) {
+                is IrStatementContainer -> {
+                    newContainer.statements.add(local)
+                    local.setDeclarationsParent(newContainer)
+                }
+                is IrDeclarationContainer -> newContainer.addChild(local)
+                else -> error("Inexpected container type $newContainer")
+            }
 
             local.acceptVoid(object : IrElementVisitorVoid {
                 override fun visitElement(element: IrElement) {

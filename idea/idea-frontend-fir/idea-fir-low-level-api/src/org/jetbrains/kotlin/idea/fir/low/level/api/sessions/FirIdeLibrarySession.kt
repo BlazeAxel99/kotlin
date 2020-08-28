@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.idea.fir.low.level.api.sessions
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.PrivateSessionConstructor
+import org.jetbrains.kotlin.fir.SessionConfiguration
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.java.JavaSymbolProvider
 import org.jetbrains.kotlin.fir.java.deserialization.KotlinDeserializedJvmSymbolsProvider
@@ -29,6 +30,7 @@ class FirIdeModuleLibraryDependenciesSession private constructor(
     sessionProvider: FirProjectSessionProvider,
 ) : FirSession(sessionProvider) {
     companion object {
+        @OptIn(SessionConfiguration::class)
         fun create(
             moduleInfo: ModuleSourceInfo,
             sessionProvider: FirProjectSessionProvider,

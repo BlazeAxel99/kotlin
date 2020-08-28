@@ -16,7 +16,3 @@ class FirJvmEffectiveVisibilityResolver(session: FirSession) : FirEffectiveVisib
         }
     }
 }
-
-fun FirSession.registerJvmEffectiveVisibilityResolver() {
-    register(FirEffectiveVisibilityResolver::class, FirJvmEffectiveVisibilityResolver(this))
-}

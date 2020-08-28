@@ -118,7 +118,19 @@ class IDEKotlinAsJavaSupport(private val project: Project) : KotlinAsJavaSupport
         )
     }
 
+    private val recursiveGuard = ThreadLocal<Boolean>()
+
     override fun getLightClass(classOrObject: KtClassOrObject): KtLightClass? {
+        if (recursiveGuard.get() == true) return null
+        return try {
+            recursiveGuard.set(true)
+            getLightClassImpl(classOrObject)
+        } finally {
+            recursiveGuard.set(false)
+        }
+    }
+
+    private fun getLightClassImpl(classOrObject: KtClassOrObject): KtLightClass? {
         if (!classOrObject.isValid) {
             return null
         }
